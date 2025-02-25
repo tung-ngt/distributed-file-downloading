@@ -1,6 +1,26 @@
+import java.io.Serializable;
 
-public interface Fragment {
-  String getFileName();
-  long startIndex();
-  long stopIndex();
+public class Fragment implements Serializable {
+
+  private String fileName;
+  private long startIndex;
+  private long stopIndex;
+
+  public Fragment(String fileName, long startIndex, long stopIndex) {
+    this.fileName = fileName;
+    this.startIndex = startIndex;
+    this.stopIndex = stopIndex;
+  };
+
+  public String getFileName() {
+    return fileName;
+  }
+
+  public long getStopIndex() {
+    return stopIndex;
+  }
+
+  public long getStartIndex() {
+    return startIndex;
+  }
 }
