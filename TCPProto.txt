@@ -1,0 +1,9 @@
+
+client --(msg)--> daemon
+
+msg: a object
+Fragment {filename, startIndex, stopIndex}
+
+client <----- daemon
+byte stream
+
