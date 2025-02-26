@@ -1,27 +1,20 @@
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 public class DownloadInfo implements Serializable {
-  private String checkSum;
-  private long fileSize;
-  private ArrayList<DownloadPart> parts;
+  private FileInfo fileInfo;
+  private List<DownloadSource> sources;
 
-  public DownloadInfo(String checkSum, long fileSize, ArrayList<DownloadPart> parts) {
-    this.checkSum = checkSum;
-    this.fileSize = fileSize;
-    this.parts = parts;
+  public DownloadInfo(FileInfo fileInfo, List<DownloadSource> sources) {
+    this.fileInfo = fileInfo;
+    this.sources = sources;
   }
 
-  public String getFileChecksum() {
-    return checkSum;
+  public FileInfo getFileInfo() {
+    return fileInfo;
   }
 
-  public long getFileSize() {
-    return fileSize;
-  }
-
-  public List<DownloadPart> getParts() {
-    return parts;
+  public List<DownloadSource> getSources() {
+    return sources;
   }
 }

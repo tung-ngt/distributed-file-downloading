@@ -1,5 +1,5 @@
 import java.io.BufferedInputStream;
 
 public interface DownloadService {
-  BufferedInputStream downloadPart(String fileName, DownloadPart downaloadPart) throws Exception;
+  BufferedInputStream downloadSource(String fileName, DownloadSource downaloadSource) throws Exception;
 }

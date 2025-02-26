@@ -1,13 +1,17 @@
+import java.util.List;
+
 public class FileInfo {
   private String fileName;
   private long fileSize;
-  private String checkSum;
+  private long pieceSize;
+  private List<String> checkSums;
   private Host originalOwner;
 
-  public FileInfo(String fileName, long fileSize, String checkSum, Host originalOwner) {
+  public FileInfo(String fileName, long fileSize, long pieceSize, List<String> checkSums, Host originalOwner) {
     this.fileName = fileName;
     this.fileSize = fileSize;
-    this.checkSum = checkSum;
+    this.pieceSize = pieceSize;
+    this.checkSums = checkSums;
     this.originalOwner = originalOwner;
 
   }
@@ -16,8 +20,8 @@ public class FileInfo {
     return fileSize;
   }
 
-  public String getCheckSum() {
-    return checkSum;
+  public List<String> getCheckSums() {
+    return checkSums;
   }
 
   public String getFileName() {
@@ -28,4 +32,7 @@ public class FileInfo {
     return originalOwner;
   }
 
+  public long getPieceSize() {
+    return pieceSize;
+}
 }
