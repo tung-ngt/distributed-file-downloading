@@ -2,7 +2,7 @@
 client --(msg)--> daemon
 
 msg: a object
-Fragment {filename, startIndex, stopIndex}
+{filename, pieceSize, List<long> piecesIndexes}
 
 client <----- daemon
 byte stream
