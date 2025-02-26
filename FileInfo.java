@@ -1,6 +1,7 @@
+import java.io.Serializable;
 import java.util.List;
 
-public class FileInfo {
+public class FileInfo implements Serializable {
   private String fileName;
   private long fileSize;
   private long pieceSize;
@@ -34,5 +35,5 @@ public class FileInfo {
 
   public long getPieceSize() {
     return pieceSize;
-}
+  }
 }
