@@ -8,6 +8,6 @@ public interface DirectoryService extends Remote {
 
   void connect(Host host) throws RemoteException;
   void disconnect(Host host) throws RemoteException;
-  void addFragments(Host host, List<Fragment> fragments) throws RemoteException;
+  void hostFiles(Host host, List<String> fileNames) throws RemoteException;
   void addNewFile(Host host, String fileName, long fileSize, long pieceSize, List<String> checkSums) throws RemoteException;
 }
