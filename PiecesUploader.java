@@ -26,6 +26,7 @@ public class PiecesUploader implements Runnable {
       System.err.println(e);
     }
 
+    System.out.println("got connect");
     try {
 
       BufferedReader reader = new BufferedReader(
@@ -35,6 +36,7 @@ public class PiecesUploader implements Runnable {
 
       String fileName = reader.readLine();
 
+    System.out.println("req " + fileName);
       RandomAccessFile file = new RandomAccessFile(fileName, "r");
 
       String range = reader.readLine();

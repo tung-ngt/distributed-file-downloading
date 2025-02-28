@@ -6,19 +6,22 @@ import java.rmi.Naming;
 import java.util.List;
 
 public class DaemonServiceImpl implements DaemonService {
-  private String directoryServiceURL = "//localhost:8888/dir";
+  private String directoryServiceURL;
   private DirectoryService directoryService;
   private Host host;
   private ServerSocket serverSocket;
 
-  public DaemonServiceImpl(Host host) {
+  public DaemonServiceImpl(Host host, String directoryServiceURL) {
+    this.directoryServiceURL = directoryServiceURL;
     this.host = host;
     try {
-      directoryService = (DirectoryService) Naming.lookup(directoryServiceURL);
+      directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
       directoryService.connect(host);
       directoryService.registerHealthCheckCallback(host, new HealthCheckCallbackImpl());
     } catch (Exception e) {
+      System.out.println("what");
       System.err.println(e);
+      e.printStackTrace();
     }
   }
 
@@ -28,6 +31,8 @@ public class DaemonServiceImpl implements DaemonService {
       serverSocket = new ServerSocket(this.host.getPort());
     } catch (Exception e) {
       System.err.println(e);
+      System.out.println("cannot listen");
+      e.printStackTrace();
     }
 
     while (true) {
@@ -63,12 +68,16 @@ public class DaemonServiceImpl implements DaemonService {
     }
   }
 
-  public static void main(String args[]) throws IOException {
-    int port = Integer.parseInt(args[0]);
-    Host host = new Host("localhost", port);
+  public static void main(String args[]) {
+    ConfigLoader daemonConfig = new ConfigLoader();
+    daemonConfig.load(args[0]);
+    
 
-    DaemonService daemonService = new DaemonServiceImpl(host);
-    daemonService.addNewFile("im.jpg", 1024);
+    int port = Integer.parseInt(daemonConfig.get("DAEMON_PORT"));
+    Host host = new Host(daemonConfig.get("DAEMON_PORT"), port);
+    DaemonService daemonService = new DaemonServiceImpl(host, daemonConfig.get("DIR_URL"));
+    daemonService.hostFiles(List.of("im.jpg"));
+    //daemonService.addNewFile("im.jpg", 1024 * 1024);
     daemonService.listen();
 
   }

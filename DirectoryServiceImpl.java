@@ -182,11 +182,14 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
         throw new Exception("Invalid arguments");
       }
 
-      String address = args[0];
-      int port = Integer.parseInt(args[1]);
-      String name = args[2];
+      ConfigLoader dirConfig = new ConfigLoader();
+      dirConfig.load(args[0]);
 
-      LocateRegistry.createRegistry(8888);
+      String address = dirConfig.get("DIR_ADDRESS");
+      int port = Integer.parseInt(dirConfig.get("DIR_PORT"));
+      String name = dirConfig.get("DIR_NAME");
+
+      LocateRegistry.createRegistry(port);
 
       DirectoryService directoryService = new DirectoryServiceImpl();
 

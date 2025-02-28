@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DownloadServiceImpl implements DownloadService {
-  private String directoryServiceURL = "//localhost:8888/dir";
+  private String directoryServiceURL = "//192.168.1.55:8888/dir";
     private DirectoryService directoryService;
 
     private DownloadServiceImpl() {
@@ -75,6 +75,6 @@ public class DownloadServiceImpl implements DownloadService {
 
 
         DownloadService downloadService = new DownloadServiceImpl();
-        downloadService.download(fileName, 1);
+        downloadService.download(fileName, 2);
     }
 }
