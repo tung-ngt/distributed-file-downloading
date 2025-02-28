@@ -1,7 +1,7 @@
+import java.util.List;
+
 public interface DaemonService {
-  void listen(Host host);
-  void connect();
-  void addFragments();
-  void addNewFile();
-  void disconnect();
+  void listen();
+  void addNewFile(String fileName, long pieceSize);
+  void hostFiles(List<String> fileNames);
 }

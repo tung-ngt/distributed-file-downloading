@@ -8,6 +8,6 @@ public class HealthCheckCallbackImpl extends UnicastRemoteObject implements Heal
 
   @Override
   public void healthCheck() throws RemoteException {
-
+    System.out.println("Still alive");
   }
 }
