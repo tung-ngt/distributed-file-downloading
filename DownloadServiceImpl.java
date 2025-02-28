@@ -5,12 +5,13 @@ import java.util.List;
 import java.util.Map;
 
 public class DownloadServiceImpl implements DownloadService {
-  private String directoryServiceURL = "//192.168.1.55:8888/dir";
+  private String directoryServiceURL;
     private DirectoryService directoryService;
 
-    private DownloadServiceImpl() {
+    private DownloadServiceImpl(String directoryServiceURL) {
+      this.directoryServiceURL = directoryServiceURL;
       try {
-        directoryService = (DirectoryService) Naming.lookup(directoryServiceURL);
+        directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
       } catch (Exception e) {
         System.err.println(e);
       }
@@ -70,11 +71,10 @@ public class DownloadServiceImpl implements DownloadService {
 
 
     public static void main(String[] args) throws Exception {
-
-        String fileName = args[0];
-
-
-        DownloadService downloadService = new DownloadServiceImpl();
+        ConfigLoader downloadConfig = new ConfigLoader();
+        downloadConfig.load(args[0]);
+        String fileName = args[1];
+        DownloadService downloadService = new DownloadServiceImpl(downloadConfig.get("DIR_ADDRESS"));
         downloadService.download(fileName, 2);
     }
 }
