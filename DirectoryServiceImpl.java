@@ -35,27 +35,39 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
 
   public List<DownloadSource> getDownloadSources(List<Host> availableHosts, int noSource, List<Long> piecesIndices) {
     int noPieces = piecesIndices.size();
-    int piecesPerSource = Math.floorDiv(noPieces, noSource);
+    // int piecesPerSource = Math.floorDiv(noPieces, noSource);
 
-    List<DownloadSource> downloadSources = new ArrayList<>();
-    for (int i = 0; i < noSource; i++) {
+		double totalWeight = 0.0;
+		double[] weights = new double[noSource];
 
-      List<Long> pieces;
+		for (int i = 0; i < noSource; i++) {
+			Host host = availableHosts.get(i);
+			weights[i] = 1.0 / (hostConnections.get(host) + 1);
+			totalWeight += weights[i];
+		}
 
-      if (i == (noSource - 1)) {
-        pieces = new ArrayList<Long>(piecesIndices.subList(i * piecesPerSource, noPieces));
-      } else {
+		List<DownloadSource> downloadSources = new ArrayList<>();
+		int currentIndex = 0;
+		double normalizedWeight;
+		int noUsePieces;
 
-        pieces = new ArrayList<Long>(piecesIndices.subList(i * piecesPerSource, (i + 1) * piecesPerSource));
-      }
+		for (int i = 0; i < noSource; i++) {
+			List<Long> pieces;
+			normalizedWeight = weights[i] / totalWeight;
+			
+			if (i == noSource - 1) {
+					noUsePieces = noPieces - currentIndex;
+			} else {
+					noUsePieces = (int) Math.floor(noPieces * normalizedWeight);
+			}
+			
+			pieces = new ArrayList<>(piecesIndices.subList(currentIndex, currentIndex + noUsePieces));
+			currentIndex += noUsePieces;
+			downloadSources.add(new DownloadSource(availableHosts.get(i), pieces));
+		}
 
-      downloadSources.add(new DownloadSource(
-          availableHosts.get(0),
-          pieces));
-    }
-
-    return downloadSources;
-  }
+		return downloadSources;
+	}
 
   @Override
   public DownloadInfo downloadInfo(String fileName, int favorableNoSource) throws RemoteException {
