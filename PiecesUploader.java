@@ -11,15 +11,17 @@ public class PiecesUploader implements Runnable {
   private String dataFolder;
   private double checksumFailPercentage;
   private double disconnectFailPercentage;
+  private long slowdown;
 
   public PiecesUploader(Socket socket, DirectoryService directoryService, Host host, String dataFolder,
-      double checksumFailPercentage, double disconnectFailPercentage) {
+      double checksumFailPercentage, double disconnectFailPercentage, long slowdown) {
     this.socket = socket;
     this.directoryService = directoryService;
     this.host = host;
     this.dataFolder = dataFolder;
     this.checksumFailPercentage = checksumFailPercentage;
     this.disconnectFailPercentage = disconnectFailPercentage;
+    this.slowdown = slowdown;
   }
 
   @Override
@@ -53,6 +55,11 @@ public class PiecesUploader implements Runnable {
 
         int bufferSize = 8092;
         byte[] buffer = new byte[bufferSize];
+
+        if (slowdown > 0) {
+
+          Thread.sleep(slowdown);
+        }
 
         if (Math.random() < disconnectFailPercentage) {
           System.out.println("fake the disconnect fail case");
