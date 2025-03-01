@@ -20,7 +20,7 @@ sleep 2
 
 
 start2=$(date +%s.%N)
-java DownloadServiceImpl config/directory.properties repeating.data.tar.gz 2 para 
+java DownloadServiceImpl config/directory.properties repeating.data.tar.gz download 2 para 
 end2=$(date +%s.%N)
 runtime2=$(echo "$end2 - $start2" | bc)
 echo "Download runtime: $runtime2 seconds"

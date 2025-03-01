@@ -13,7 +13,7 @@ sleep 2
 
 
 start=$(date +%s.%N)
-java DownloadServiceImpl config/directory.properties repeating.data 2 para 
+java DownloadServiceImpl config/directory.properties repeating.data download 2 para 
 end=$(date +%s.%N)
 
 runtime=$(echo "$end - $start" | bc)

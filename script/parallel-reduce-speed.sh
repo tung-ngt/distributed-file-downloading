@@ -18,7 +18,7 @@ for i in $(seq 1 $sources); do
   for j in $(seq 1 $n); do
       echo "run $j"
       start=$(date +%s.%N)
-      java DownloadServiceImpl config/directory.properties repeating.data "$i" para &> "log/download-para-reduce-speed$i.log"
+      java DownloadServiceImpl config/directory.properties repeating.data download "$i" para &> "log/download-para-reduce-speed$i.log"
       end=$(date +%s.%N)
       runtime=$(echo "$end - $start" | bc)
       total=$(echo "$total + $runtime" | bc)

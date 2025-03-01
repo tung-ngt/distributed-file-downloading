@@ -23,7 +23,7 @@ public class DownloadServiceImpl implements DownloadService {
   }
 
   @Override
-  public void download(String fileName, int favorableNoSources, boolean sequential) {
+  public void download(String fileName, int favorableNoSources, boolean sequential, String downloadFolder) {
     // Get file info and download sources first
     try {
 
@@ -48,7 +48,7 @@ public class DownloadServiceImpl implements DownloadService {
         System.out.println("starting download asking directory no " + attempt);
 
         for (int i = 0; i < downloadSources.size(); i++) {
-          downloaders[i] = new PiecesDownloader(fileInfo, downloadSources.get(i));
+          downloaders[i] = new PiecesDownloader(fileInfo, downloadSources.get(i), downloadFolder);
           threads[i] = new Thread(downloaders[i]);
           threads[i].start();
 
@@ -80,11 +80,11 @@ public class DownloadServiceImpl implements DownloadService {
       }
 
       if (successfullPieces.size() == noPieces) {
-        Files.move(Paths.get("download/" + fileName + ".temp"), Paths.get("download/" + fileName),
+        Files.move(Paths.get(downloadFolder + "/" + fileName + ".temp"), Paths.get(downloadFolder + "/" + fileName),
             StandardCopyOption.REPLACE_EXISTING);
         System.out.println("Download successfull");
       } else {
-        Files.delete(Paths.get("download/" + fileName + ".temp"));
+        Files.delete(Paths.get(downloadFolder + "/" + fileName + ".temp"));
         System.err.println("Failed download after 3 attempts");
       }
 
@@ -94,9 +94,9 @@ public class DownloadServiceImpl implements DownloadService {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 4) {
+    if (args.length != 5) {
       System.out.println(
-          "use the program like this\njava DownloadServiceImpl <path-to-dir-config> <file-to-download> <no-favorable-source> <seq|para>");
+          "use the program like this\njava DownloadServiceImpl <path-to-dir-config> <file-to-download> <path-to-save-folder> <no-favorable-source> <seq|para>");
       throw new RuntimeException("missing or invalid args");
     }
     Properties dirConfig = new Properties();
@@ -118,8 +118,9 @@ public class DownloadServiceImpl implements DownloadService {
     DownloadService downloadService = new DownloadServiceImpl(directoryServiceURL);
 
     String fileName = args[1];
-    int favorableNoSources = Integer.parseInt(args[2]);
-    boolean sequential = args[3].equals("seq");
-    downloadService.download(fileName, favorableNoSources, sequential);
+    String downloadFolder = args[2];
+    int favorableNoSources = Integer.parseInt(args[3]);
+    boolean sequential = args[4].equals("seq");
+    downloadService.download(fileName, favorableNoSources, sequential, downloadFolder);
   }
 }

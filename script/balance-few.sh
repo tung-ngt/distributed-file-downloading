@@ -16,17 +16,17 @@ sleep 2
 
 
 for i in $(seq 3 $n); do
-    java DownloadServiceImpl config/directory.properties random.data 1 para  &> "log/balance-few-download1-$i.log" &
+    java DownloadServiceImpl config/directory.properties random.data 1 download para  &> "log/balance-few-download1-$i.log" &
     sleep 1
 done
 
 for i in $(seq 2 $n); do
-    java DownloadServiceImpl config/directory.properties random2.data 1 para  &> "log/balance-few-download2-$i.log" &
+    java DownloadServiceImpl config/directory.properties random2.data 1 download para  &> "log/balance-few-download2-$i.log" &
     sleep 1
 done
 
 start=$(date +%s.%N)
-java DownloadServiceImpl config/directory.properties repeating.data 3 para 
+java DownloadServiceImpl config/directory.properties repeating.data 3 download para 
 end=$(date +%s.%N)
 
 runtime=$(echo "$end - $start" | bc)

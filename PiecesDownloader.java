@@ -17,12 +17,14 @@ public class PiecesDownloader implements Runnable {
   private FileInfo fileInfo;
   private Set<Long> successFullPieces;
   private Set<Long> failedPieces;
+  private String downloadFolder;
 
-  public PiecesDownloader(FileInfo fileInfo, DownloadSource downloadSource) {
+  public PiecesDownloader(FileInfo fileInfo, DownloadSource downloadSource, String downloadFolder) {
     this.fileInfo = fileInfo;
     this.downloadSource = downloadSource;
     this.successFullPieces = new HashSet<>();
     this.failedPieces = new HashSet<>(downloadSource.getPieceIndices());
+    this.downloadFolder = downloadFolder;
   }
 
   @Override
@@ -31,7 +33,7 @@ public class PiecesDownloader implements Runnable {
 
     try {
 
-      RandomAccessFile file = new RandomAccessFile("download/" + fileInfo.getFileName() + ".temp", "rw");
+      RandomAccessFile file = new RandomAccessFile(downloadFolder + "/" + fileInfo.getFileName() + ".temp", "rw");
       FileChannel fileChannel = file.getChannel();
 
       for (int attempt = 0; attempt < 3; attempt++) {
