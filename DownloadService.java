@@ -1,3 +1,3 @@
 public interface DownloadService {
-  void download(String fileName, int favorableNoSources);
+  void download(String fileName, int favorableNoSources, boolean sequential);
 }

@@ -14,18 +14,27 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 public class DirectoryServiceImpl extends UnicastRemoteObject implements DirectoryService {
-  Set<Host> onlineHost;
-  Map<Host, Integer> hostConnections;
-  Map<String, Set<Host>> sources;
-  Map<String, FileInfo> files;
-  Map<Host, HealthCheckCallback> hostHealthCheckCallbacks;
+  private Set<Host> onlineHost;
+  private Map<Host, Integer> hostConnections;
+  private Map<String, Set<Host>> sources;
+  private Map<String, FileInfo> files;
+  private Map<Host, HealthCheckCallback> hostHealthCheckCallbacks;
+  private boolean balance;
+  private double balanceSmooth;
+  private double balanceShift;
+  private double balanceE;
 
-  public DirectoryServiceImpl() throws RemoteException {
+  public DirectoryServiceImpl(boolean balance, double balanceSmooth, double balanceShift, double balanceE)
+      throws RemoteException {
     onlineHost = new HashSet<>();
     hostConnections = new HashMap<>();
     sources = new HashMap<>();
     files = new HashMap<>();
     hostHealthCheckCallbacks = new HashMap<>();
+    this.balance = balance;
+    this.balanceSmooth = balanceSmooth;
+    this.balanceShift = balanceShift;
+    this.balanceE = balanceE;
   }
 
   public List<Host> getAvailableHosts(String fileName) {
@@ -44,7 +53,13 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
 
     for (int i = 0; i < noSource; i++) {
       Host host = availableHosts.get(i);
-      weights[i] = 1.0 / (hostConnections.get(host) + 1);
+      if (!balance) {
+        weights[i] = 1.0;
+      } else {
+
+        weights[i] = Math.tanh(-balanceSmooth * hostConnections.get(host) + balanceShift) + 1 + balanceE;
+      }
+
       totalWeight += weights[i];
     }
 
@@ -223,16 +238,24 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
       int port = Integer.parseInt(dirConfig.getProperty("DIR_PORT"));
       String name = dirConfig.getProperty("DIR_NAME");
 
+      boolean balance = Boolean.parseBoolean(dirConfig.getProperty("DIR_BALANCE"));
+      double balanceSmooth = Double.parseDouble(dirConfig.getProperty("DIR_BALANCE_SMOOTH"));
+      double balanceShift = Double.parseDouble(dirConfig.getProperty("DIR_BALANCE_SHIFT"));
+      double balanceE = Double.parseDouble(dirConfig.getProperty("DIR_BALANCE_E"));
+
       System.setProperty("java.rmi.server.hostname", address);
       LocateRegistry.createRegistry(port);
 
-      DirectoryService directoryService = new DirectoryServiceImpl();
+      DirectoryService directoryService = new DirectoryServiceImpl(balance, balanceSmooth, balanceShift, balanceE);
 
       String URL = "//" + address + ":" + port + "/" + name;
+
 
       Naming.rebind(URL, directoryService);
     } catch (Exception e) {
       System.err.println(e);
+      System.err.println("cannot host dir");
+      e.printStackTrace();
     }
   }
 }

@@ -3,6 +3,7 @@ data/
 download/
 *.jpg
 *.properties
+*.log
 
 !*-example.properties
 
