@@ -16,16 +16,20 @@ public class DaemonServiceImpl implements DaemonService {
   private String dataFolder;
   private double checksumFailPercentage;
   private double disconnectFailPercentage;
-  private long slowdown;
+  private long networkLatency;
+  private boolean linearSlowdown;
+  private ConnectionCountMonitor connectionCountMonitor;
 
   public DaemonServiceImpl(Host host, String directoryServiceURL, String dataFolder, double checksumFailPercentage,
-      double disconnectFailPercentage, long slowdown) {
+      double disconnectFailPercentage, long networkLatency, boolean linearSlowdown) {
     this.directoryServiceURL = directoryServiceURL;
     this.host = host;
     this.dataFolder = dataFolder;
     this.checksumFailPercentage = checksumFailPercentage;
     this.disconnectFailPercentage = disconnectFailPercentage;
-    this.slowdown = slowdown;
+    this.networkLatency = networkLatency;
+    this.linearSlowdown = linearSlowdown;
+    this.connectionCountMonitor = new ConnectionCountMonitor();
     try {
       directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
       directoryService.connect(host);
@@ -53,7 +57,7 @@ public class DaemonServiceImpl implements DaemonService {
       try {
         Socket socket = serverSocket.accept();
         PiecesUploader piecesUploader = new PiecesUploader(socket, directoryService, host, dataFolder,
-            checksumFailPercentage, disconnectFailPercentage, slowdown);
+            checksumFailPercentage, disconnectFailPercentage, networkLatency, linearSlowdown, connectionCountMonitor);
         new Thread(piecesUploader).start();
       } catch (Exception e) {
         System.err.println(e);
@@ -128,17 +132,24 @@ public class DaemonServiceImpl implements DaemonService {
       disconnectFailPercentage = Double.parseDouble(daemonConfig.getProperty("DAEMON_DISCONNECT_FAIL_PERCENTAGE"));
     }
 
-    long slowdown = -1;
-    if ((daemonConfig.getProperty("DAEMON_SLOWDOWN") != null)
-        && (!daemonConfig.getProperty("DAEMON_SLOWDOWN").trim().isEmpty())) {
-      slowdown = Long.parseLong(daemonConfig.getProperty("DAEMON_SLOWDOWN"));
+    long networkLatency = -1;
+    if ((daemonConfig.getProperty("DAEMON_NETWORK_LATENCY") != null)
+        && (!daemonConfig.getProperty("DAEMON_NETWORK_LATENCY").trim().isEmpty())) {
+      networkLatency = Long.parseLong(daemonConfig.getProperty("DAEMON_NETWORK_LATENCY"));
+    }
+
+    boolean linearSlowdown = false;
+    if ((daemonConfig.getProperty("DAEMON_LINEAR_SLOWDOWN") != null)
+        && (!daemonConfig.getProperty("DAEMON_LINEAR_SLOWDOWN").trim().isEmpty())) {
+      linearSlowdown = Boolean.parseBoolean(daemonConfig.getProperty("DAEMON_LINEAR_SLOWDOWN"));
     }
 
     DaemonService daemonService = new DaemonServiceImpl(host, directoryServiceURL,
         daemonConfig.getProperty("DAEMON_DATA_FOLDER"),
         checksumFailPercentage,
         disconnectFailPercentage,
-        slowdown);
+        networkLatency,
+        linearSlowdown);
 
     if ((daemonConfig.getProperty("DAEMON_NEW_FILES") != null)
         && (!daemonConfig.getProperty("DAEMON_NEW_FILES").trim().isEmpty())) {

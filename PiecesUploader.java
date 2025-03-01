@@ -11,23 +11,28 @@ public class PiecesUploader implements Runnable {
   private String dataFolder;
   private double checksumFailPercentage;
   private double disconnectFailPercentage;
-  private long slowdown;
+  private long networkLatency;
+  private ConnectionCountMonitor connectionCountMonitor;
+  private boolean linearSlowdown;
 
   public PiecesUploader(Socket socket, DirectoryService directoryService, Host host, String dataFolder,
-      double checksumFailPercentage, double disconnectFailPercentage, long slowdown) {
+      double checksumFailPercentage, double disconnectFailPercentage, long networkLatency, boolean linearSlowdown, ConnectionCountMonitor connectionCountMonitor) {
     this.socket = socket;
     this.directoryService = directoryService;
     this.host = host;
     this.dataFolder = dataFolder;
     this.checksumFailPercentage = checksumFailPercentage;
     this.disconnectFailPercentage = disconnectFailPercentage;
-    this.slowdown = slowdown;
+    this.networkLatency = networkLatency;
+    this.connectionCountMonitor = connectionCountMonitor;
+    this.linearSlowdown = linearSlowdown;
   }
 
   @Override
   public void run() {
     try {
       directoryService.newTransfer(host);
+      connectionCountMonitor.increment();
     } catch (Exception e) {
       System.err.println(e);
     }
@@ -56,9 +61,12 @@ public class PiecesUploader implements Runnable {
         int bufferSize = 8092;
         byte[] buffer = new byte[bufferSize];
 
-        if (slowdown > 0) {
-
-          Thread.sleep(slowdown);
+        if (networkLatency > 0) {
+          if (linearSlowdown) {
+            Thread.sleep(networkLatency * connectionCountMonitor.get());
+          } else {
+            Thread.sleep(networkLatency);
+          }
         }
 
         if (Math.random() < disconnectFailPercentage) {
@@ -113,6 +121,7 @@ public class PiecesUploader implements Runnable {
     }
     try {
       directoryService.finishTransfer(host);
+      connectionCountMonitor.decrement();
     } catch (Exception e) {
       System.err.println(e);
     }
