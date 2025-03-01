@@ -1,3 +1,4 @@
+import java.io.FileInputStream;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -7,7 +8,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 public class DirectoryServiceImpl extends UnicastRemoteObject implements DirectoryService {
@@ -30,56 +33,55 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
         .stream()
         .filter(onlineHost::contains)
         .sorted((a, b) -> hostConnections.get(a).compareTo(hostConnections.get(b)))
-        .toList();
+        .collect(Collectors.toCollection(ArrayList::new));
   };
 
   public List<DownloadSource> getDownloadSources(List<Host> availableHosts, int noSource, List<Long> piecesIndices) {
     int noPieces = piecesIndices.size();
-    // int piecesPerSource = Math.floorDiv(noPieces, noSource);
 
-		double totalWeight = 0.0;
-		double[] weights = new double[noSource];
+    double totalWeight = 0.0;
+    double[] weights = new double[noSource];
 
-		for (int i = 0; i < noSource; i++) {
-			Host host = availableHosts.get(i);
-			weights[i] = 1.0 / (hostConnections.get(host) + 1);
-			totalWeight += weights[i];
-		}
+    for (int i = 0; i < noSource; i++) {
+      Host host = availableHosts.get(i);
+      weights[i] = 1.0 / (hostConnections.get(host) + 1);
+      totalWeight += weights[i];
+    }
 
-		List<DownloadSource> downloadSources = new ArrayList<>();
-		int currentIndex = 0;
-		double normalizedWeight;
-		int noUsePieces;
+    List<DownloadSource> downloadSources = new ArrayList<>();
+    int currentIndex = 0;
+    double normalizedWeight;
+    int noUsePieces;
 
-		for (int i = 0; i < noSource; i++) {
-			List<Long> pieces;
-			normalizedWeight = weights[i] / totalWeight;
-			
-			if (i == noSource - 1) {
-					noUsePieces = noPieces - currentIndex;
-			} else {
-					noUsePieces = (int) Math.floor(noPieces * normalizedWeight);
-			}
-			
-			pieces = new ArrayList<>(piecesIndices.subList(currentIndex, currentIndex + noUsePieces));
-			currentIndex += noUsePieces;
-			downloadSources.add(new DownloadSource(availableHosts.get(i), pieces));
-		}
+    for (int i = 0; i < noSource; i++) {
+      List<Long> pieces;
+      normalizedWeight = weights[i] / totalWeight;
 
-		return downloadSources;
-	}
+      if (i == noSource - 1) {
+        noUsePieces = noPieces - currentIndex;
+      } else {
+        noUsePieces = (int) Math.floor(noPieces * normalizedWeight);
+      }
+
+      Host host = availableHosts.get(i);
+      System.out.println(host.toString() + " weight: " + normalizedWeight);
+      pieces = new ArrayList<>(piecesIndices.subList(currentIndex, currentIndex + noUsePieces));
+      currentIndex += noUsePieces;
+      downloadSources.add(new DownloadSource(host, pieces));
+    }
+
+    return downloadSources;
+  }
 
   @Override
   public DownloadInfo downloadInfo(String fileName, int favorableNoSource) throws RemoteException {
+
+    System.out.println("get request for file " + fileName);
     if (!files.containsKey(fileName)) {
       throw new RemoteException("No available file");
     }
 
     FileInfo fileInfo = files.get(fileName);
-
-    System.out.println(onlineHost.size());
-    System.out.println(sources.get(fileName).size());
-
     List<Host> availableHosts = getAvailableHosts(fileName);
 
     if (availableHosts.size() == 0) {
@@ -91,7 +93,9 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
 
     List<Long> piecesIndices = LongStream.range(0, noPieces).boxed().toList();
     List<DownloadSource> downloadSources = getDownloadSources(availableHosts, noSource, piecesIndices);
-
+    System.out
+        .println("asked for no fav sources " + favorableNoSource + ". Allocate no source " + downloadSources.size());
+    System.out.println();
     DownloadInfo downloadInfo = new DownloadInfo(
         fileInfo,
         downloadSources);
@@ -102,15 +106,19 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
   public List<DownloadSource> failedSources(String fileName, List<DownloadSource> sources, int favorableNoSource)
       throws RemoteException {
 
+    System.out.println("failed sources retrying for file " + fileName);
     List<Long> failedPieces = new ArrayList<>();
+    List<Host> failedHosts = new ArrayList<>();
     for (DownloadSource source : sources) {
       Host host = source.getHost();
       failedPieces.addAll(source.getPieceIndices());
       try {
         hostHealthCheckCallbacks.get(host).healthCheck();
+        System.out.println(host.toString() + " healthCheck still alive moving to back of priority queue");
+        failedHosts.add(host);
+
       } catch (Exception e) {
         // Falied health check, mark the host as disconnected
-        System.out.println(e);
         System.out.println(host.toString() + " failed healthCheck, marking disconnected");
         try {
           disconnect(host);
@@ -122,12 +130,26 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
 
     List<Host> availableHosts = getAvailableHosts(fileName);
 
+    // Moving failed hosts to the back of the queue to give less priority
+    for (Host failedHost : failedHosts) {
+      try {
+        Host host = availableHosts.remove(availableHosts.indexOf(failedHost));
+        availableHosts.add(host);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
     if (availableHosts.size() == 0) {
       throw new RemoteException("All host offline for file");
     }
 
     int noSource = Integer.min(favorableNoSource, availableHosts.size());
-    return getDownloadSources(availableHosts, noSource, failedPieces);
+    List<DownloadSource> downloadSources = getDownloadSources(availableHosts, noSource, failedPieces);
+    System.out
+        .println("asked for no fav sources " + favorableNoSource + ". Allocate no source " + downloadSources.size());
+    System.out.println();
+    return downloadSources;
   }
 
   @Override
@@ -189,18 +211,19 @@ public class DirectoryServiceImpl extends UnicastRemoteObject implements Directo
   }
 
   public static void main(String[] args) {
+    if (args.length != 1) {
+      System.out.println("use the program like this\njava DirectoryServiceImpl <path-to-dir-config>");
+      throw new RuntimeException("missing or invalid args");
+    }
     try {
-      if (args.length != 3) {
-        throw new Exception("Invalid arguments");
-      }
+      Properties dirConfig = new Properties();
+      dirConfig.load(new FileInputStream(args[0]));
 
-      ConfigLoader dirConfig = new ConfigLoader();
-      dirConfig.load(args[0]);
+      String address = dirConfig.getProperty("DIR_ADDRESS");
+      int port = Integer.parseInt(dirConfig.getProperty("DIR_PORT"));
+      String name = dirConfig.getProperty("DIR_NAME");
 
-      String address = dirConfig.get("DIR_ADDRESS");
-      int port = Integer.parseInt(dirConfig.get("DIR_PORT"));
-      String name = dirConfig.get("DIR_NAME");
-
+      System.setProperty("java.rmi.server.hostname", address);
       LocateRegistry.createRegistry(port);
 
       DirectoryService directoryService = new DirectoryServiceImpl();

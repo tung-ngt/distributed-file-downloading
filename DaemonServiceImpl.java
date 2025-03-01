@@ -1,28 +1,39 @@
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.rmi.Naming;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 
 public class DaemonServiceImpl implements DaemonService {
   private String directoryServiceURL;
   private DirectoryService directoryService;
   private Host host;
   private ServerSocket serverSocket;
+  private String dataFolder;
+  private double checksumFailPercentage;
+  private double disconnectFailPercentage;
 
-  public DaemonServiceImpl(Host host, String directoryServiceURL) {
+  public DaemonServiceImpl(Host host, String directoryServiceURL, String dataFolder, double checksumFailPercentage, double disconnectFailPercentage) {
     this.directoryServiceURL = directoryServiceURL;
     this.host = host;
+    this.dataFolder = dataFolder;
+    this.checksumFailPercentage = checksumFailPercentage;
+    this.disconnectFailPercentage = disconnectFailPercentage;
     try {
       directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
       directoryService.connect(host);
       directoryService.registerHealthCheckCallback(host, new HealthCheckCallbackImpl());
     } catch (Exception e) {
-      System.out.println("what");
+      System.err.println("Cannot connect to directory");
       System.err.println(e);
       e.printStackTrace();
     }
+
+    Runtime.getRuntime().addShutdownHook(new Thread(new ShutdownHook(directoryService, host)));
   }
 
   @Override
@@ -38,7 +49,8 @@ public class DaemonServiceImpl implements DaemonService {
     while (true) {
       try {
         Socket socket = serverSocket.accept();
-        PiecesUploader piecesUploader = new PiecesUploader(socket, directoryService, host);
+        PiecesUploader piecesUploader = new PiecesUploader(socket, directoryService, host, dataFolder,
+            checksumFailPercentage, disconnectFailPercentage);
         new Thread(piecesUploader).start();
       } catch (Exception e) {
         System.err.println(e);
@@ -50,9 +62,9 @@ public class DaemonServiceImpl implements DaemonService {
   @Override
   public void addNewFile(String fileName, long pieceSize) {
     try {
-      File file = new File(fileName);
+      File file = new File(dataFolder + "/" + fileName);
       long fileSize = file.length();
-      List<String> checkSums = ChecksumUtils.getFileCheckSums(fileName, pieceSize);
+      List<String> checkSums = ChecksumUtils.getFileCheckSums(dataFolder + "/" + fileName, pieceSize);
       directoryService.addNewFile(host, fileName, fileSize, pieceSize, checkSums);
     } catch (Exception e) {
       e.printStackTrace();
@@ -69,16 +81,76 @@ public class DaemonServiceImpl implements DaemonService {
   }
 
   public static void main(String args[]) {
-    ConfigLoader daemonConfig = new ConfigLoader();
-    daemonConfig.load(args[0]);
-    
+    if (args.length != 2) {
+      System.out
+          .println("use the program like this\njava DaemonServiceImpl <path-to-dir-config> <path-to-daemon-config>");
+      throw new RuntimeException("missing or invalid args");
+    }
 
-    int port = Integer.parseInt(daemonConfig.get("DAEMON_PORT"));
-    Host host = new Host(daemonConfig.get("DAEMON_PORT"), port);
-    DaemonService daemonService = new DaemonServiceImpl(host, daemonConfig.get("DIR_URL"));
-    daemonService.hostFiles(List.of("im.jpg"));
-    //daemonService.addNewFile("im.jpg", 1024 * 1024);
+    Properties dirConfig = new Properties();
+    Properties daemonConfig = new Properties();
+    try {
+      dirConfig.load(new FileInputStream(args[0]));
+    } catch (Exception e) {
+      System.err.println("not found dir config");
+    }
+
+    try {
+      daemonConfig.load(new FileInputStream(args[1]));
+    } catch (Exception e) {
+      System.err.println("not found daemon config");
+    }
+
+    int port = Integer.parseInt(daemonConfig.getProperty("DAEMON_PORT"));
+    Host host = new Host(daemonConfig.getProperty("DAEMON_ADDRESS"), port);
+
+    String directoryServiceURL;
+    try {
+      directoryServiceURL = "//" + dirConfig.getProperty("DIR_ADDRESS") + ":" + dirConfig.getProperty("DIR_PORT") + "/"
+          + dirConfig.getProperty("DIR_NAME");
+    } catch (Exception e) {
+      System.err.println(e);
+      throw new RuntimeException("missing config");
+    }
+
+    double checksumFailPercentage = -1;
+    if ((daemonConfig.getProperty("DAEMON_CHECKSUM_FAIL_PERCENTAGE") != null)
+        && (!daemonConfig.getProperty("DAEMON_CHECKSUM_FAIL_PERCENTAGE").trim().isEmpty())) {
+      checksumFailPercentage = Double.parseDouble(daemonConfig.getProperty("DAEMON_CHECKSUM_FAIL_PERCENTAGE"));
+    }
+
+    double disconnectFailPercentage = -1;
+    if ((daemonConfig.getProperty("DAEMON_DISCONNECT_FAIL_PERCENTAGE") != null)
+        && (!daemonConfig.getProperty("DAEMON_DISCONNECT_FAIL_PERCENTAGE").trim().isEmpty())) {
+      disconnectFailPercentage = Double.parseDouble(daemonConfig.getProperty("DAEMON_DISCONNECT_FAIL_PERCENTAGE"));
+    }
+
+    DaemonService daemonService = new DaemonServiceImpl(host, directoryServiceURL,
+        daemonConfig.getProperty("DAEMON_DATA_FOLDER"),
+        checksumFailPercentage,
+        disconnectFailPercentage);
+
+
+    if ((daemonConfig.getProperty("DAEMON_NEW_FILES") != null)
+        && (!daemonConfig.getProperty("DAEMON_NEW_FILES").trim().isEmpty())) {
+      String[] newFileConfigs = daemonConfig.getProperty("DAEMON_NEW_FILES").split(";");
+      for (String newFileConfig : newFileConfigs) {
+        String[] fileConfigs = newFileConfig.split(",");
+        System.out.println("create new file " + fileConfigs[0].toString() + "," + fileConfigs[1].toString());
+        daemonService.addNewFile(fileConfigs[0], Integer.parseInt(fileConfigs[1]) * 1024);
+      }
+
+    }
+    if ((daemonConfig.getProperty("DAEMON_HOST_FILES") != null)
+        && (!daemonConfig.getProperty("DAEMON_HOST_FILES").trim().isEmpty())) {
+
+      List<String> hostFiles = Arrays.asList(daemonConfig.getProperty("DAEMON_HOST_FILES").trim().split(";"));
+      if (hostFiles.size() > 0) {
+        System.out.println(hostFiles.size() + " host files: " + hostFiles.toString());
+        daemonService.hostFiles(hostFiles);
+      }
+    }
+
     daemonService.listen();
-
   }
 }

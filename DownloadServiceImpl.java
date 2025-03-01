@@ -1,80 +1,124 @@
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.rmi.Naming;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 public class DownloadServiceImpl implements DownloadService {
   private String directoryServiceURL;
-    private DirectoryService directoryService;
+  private DirectoryService directoryService;
 
-    private DownloadServiceImpl(String directoryServiceURL) {
-      this.directoryServiceURL = directoryServiceURL;
-      try {
-        directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
-      } catch (Exception e) {
-        System.err.println(e);
-      }
+  private DownloadServiceImpl(String directoryServiceURL) {
+    this.directoryServiceURL = directoryServiceURL;
+    try {
+      directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
+    } catch (Exception e) {
+      System.err.println(e);
     }
+  }
 
+  @Override
+  public void download(String fileName, int favorableNoSources) {
+    // Get file info and download sources first
+    try {
 
-    @Override
-    public void download(String fileName, int favorableNoSources)  {
-        // Get file info and download sources first
-        try {
-          
-        DownloadInfo downloadInfo = directoryService.downloadInfo(fileName, favorableNoSources);
+      DownloadInfo downloadInfo = directoryService.downloadInfo(fileName, favorableNoSources);
 
-        List<DownloadSource> downloadSources = downloadInfo.getSources();
+      FileInfo fileInfo = downloadInfo.getFileInfo();
+      int noPieces = fileInfo.getCheckSums().size();
 
-        FileInfo fileInfo = downloadInfo.getFileInfo();
+      if (fileInfo == null) {
+        throw new IllegalStateException("FileInfo cannot be null!");
+      }
 
-        if (fileInfo == null) {
-            throw new IllegalStateException("FileInfo cannot be null!");
-        }
-
-
+      Set<Long> successfullPieces = new HashSet<>();
+      List<DownloadSource> downloadSources = downloadInfo.getSources();
+      List<DownloadSource> failedSources = new ArrayList<>();
+      int noFailedPieces = 0;
+      int attempt = 0;
+      while (attempt < 3) {
         PiecesDownloader[] downloaders = new PiecesDownloader[downloadSources.size()];
         Thread[] threads = new Thread[downloadSources.size()];
 
-
-        System.out.println("starting download");
+        System.out.println("starting download asking directory no " + attempt);
 
         for (int i = 0; i < downloadSources.size(); i++) {
-            downloaders[i] = new PiecesDownloader(fileInfo, downloadSources.get(i));
-            threads[i] = new Thread(downloaders[i]);
-            threads[i].start();
+          downloaders[i] = new PiecesDownloader(fileInfo, downloadSources.get(i));
+          threads[i] = new Thread(downloaders[i]);
+          threads[i].start();
         }
 
-        Map<Long, byte[]> pieciesMap = new HashMap<>();
         for (int i = 0; i < downloadSources.size(); i++) {
-            threads[i].join();
-            pieciesMap.putAll(downloaders[i].getPieces());
+          threads[i].join();
+          successfullPieces.addAll(downloaders[i].successfullPieces());
+          if (!downloaders[i].successfull()) {
+            DownloadSource failedSource = downloaders[i].failedPieces();
+            failedSources.add(failedSource);
+            noFailedPieces += failedSource.getPieceIndices().size();
+          }
         }
 
-
-
-        int noPieces = fileInfo.getCheckSums().size();
-
-
-        FileOutputStream fileOutputStream = new FileOutputStream("downloaded.jpg");
-        for (int i = 0; i < noPieces; i++) {
-          fileOutputStream.write(pieciesMap.get((long) i));
+        if (successfullPieces.size() == noPieces) {
+          break;
         }
 
+        int newFavorableNoSources = (int) Math.max(favorableNoSources * ((double) noFailedPieces / noPieces), 1);
+        downloadSources = directoryService.failedSources(fileName, failedSources, newFavorableNoSources);
+        failedSources.clear();
+        noFailedPieces = 0;
+        System.out.println("some source failed asking directory again with number of source " + newFavorableNoSources);
+        attempt++;
+      }
 
-        fileOutputStream.close();
-        } catch (Exception e) {
-          System.err.println(e);
-        }
+      if (successfullPieces.size() == noPieces) {
+        Files.move(Paths.get("download/" + fileName + ".temp"), Paths.get("download/" + fileName), StandardCopyOption.REPLACE_EXISTING);
+        System.out.println("Download successfull");
+      } else {
+        Files.delete(Paths.get("download/" + fileName + ".temp"));
+        System.err.println("Failed download after 3 attempts");
+      }
+
+    } catch (Exception e) {
+      System.err.println(e);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    if (args.length != 3) {
+      System.out.println(
+          "use the program like this\njava DownloadServiceImpl <path-to-dir-config> <file-to-download> <no-favorable-source>");
+      throw new RuntimeException("missing or invalid args");
+    }
+    Properties dirConfig = new Properties();
+    try {
+      dirConfig.load(new FileInputStream(args[0]));
+    } catch (Exception e) {
+      System.err.println(e);
+      throw new RuntimeException("invalid directory config file");
     }
 
-
-    public static void main(String[] args) throws Exception {
-        ConfigLoader downloadConfig = new ConfigLoader();
-        downloadConfig.load(args[0]);
-        String fileName = args[1];
-        DownloadService downloadService = new DownloadServiceImpl(downloadConfig.get("DIR_ADDRESS"));
-        downloadService.download(fileName, 2);
+    String directoryServiceURL;
+    try {
+      directoryServiceURL = "//" + dirConfig.getProperty("DIR_ADDRESS") + ":" + dirConfig.getProperty("DIR_PORT") + "/"
+          + dirConfig.getProperty("DIR_NAME");
+    } catch (Exception e) {
+      System.err.println(e);
+      throw new RuntimeException("missing config");
     }
+    DownloadService downloadService = new DownloadServiceImpl(directoryServiceURL);
+
+    String fileName = args[1];
+    int favorableNoSources = Integer.parseInt(args[2]);
+    downloadService.download(fileName, favorableNoSources);
+  }
 }

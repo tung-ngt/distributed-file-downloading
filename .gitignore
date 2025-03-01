@@ -1,3 +1,8 @@
 *.class
 data/
+download/
 *.jpg
+*.properties
+
+!*-example.properties
+
