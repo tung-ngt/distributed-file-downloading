@@ -1,2 +1,5 @@
 *.class
 data/
+download/
+*.jpg
+log/
