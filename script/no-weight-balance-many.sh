@@ -2,6 +2,8 @@
 
 javac DirectoryServiceImpl.java DaemonServiceImpl.java DownloadServiceImpl.java
 
+script/killall.sh
+echo "starting directory"
 java DirectoryServiceImpl config/directory-no-balance.properties &
 sleep 2
 
@@ -33,4 +35,4 @@ runtime=$(echo "$end - $start" | bc)
 
 echo "Download runtime: $runtime seconds"
 
-pkill -f "java"
+script/killall.sh

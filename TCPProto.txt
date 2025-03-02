@@ -1,9 +1,0 @@
-
-client --(msg)--> daemon
-
-msg: a object
-{filename, pieceSize, List<long> piecesIndexes}
-
-client <----- daemon
-byte stream
-

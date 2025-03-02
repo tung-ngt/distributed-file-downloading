@@ -2,6 +2,8 @@
 javac DirectoryServiceImpl.java DaemonServiceImpl.java DownloadServiceImpl.java
 
 
+script/killall.sh
+echo "starting directory"
 java DirectoryServiceImpl config/directory.properties &
 sleep 2
 
@@ -19,4 +21,4 @@ end=$(date +%s.%N)
 runtime=$(echo "$end - $start" | bc)
 echo "Download runtime: $runtime seconds"
 
-pkill -f "java"
+script/killall.sh

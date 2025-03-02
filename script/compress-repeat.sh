@@ -9,6 +9,9 @@ end1=$(date +%s.%N)
 runtime1=$(echo "$end1 - $start1" | bc)
 echo "compress runtime: $runtime1 seconds"
 
+script/killall.sh
+echo "starting directory"
+
 java DirectoryServiceImpl config/directory.properties &
 sleep 2
 
@@ -34,4 +37,4 @@ echo "decompressing runtime: $runtime3 seconds"
 runtime=$(echo "$runtime2 + $runtime3" | bc)
 echo "Download & decompress runtime: $runtime seconds"
 
-pkill -f "java"
+script/killall.sh

@@ -1,0 +1,8 @@
+
+client --(fileName)--> daemon
+
+while (true) {
+  client --(startIndex, stopIndex)--> daemon
+  client <--(Byte stream)-- daemon
+}
+

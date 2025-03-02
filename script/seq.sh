@@ -2,6 +2,8 @@
 
 javac DirectoryServiceImpl.java DaemonServiceImpl.java DownloadServiceImpl.java
 
+script/killall.sh
+echo "starting directory"
 java DirectoryServiceImpl config/directory.properties &
 sleep 2
 
@@ -27,4 +29,4 @@ for i in $(seq 1 $sources); do
   echo "Average execution time $i sources: $average seconds"
 done
 
-pkill -f "java"
+script/killall.sh

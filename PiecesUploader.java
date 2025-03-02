@@ -70,7 +70,6 @@ public class PiecesUploader implements Runnable {
         }
 
         if (Math.random() < disconnectFailPercentage) {
-          System.out.println("fake the disconnect fail case");
           file.close();
           // simulate hard socket failed
           socket.setSoLinger(true, 0);
@@ -87,7 +86,6 @@ public class PiecesUploader implements Runnable {
             currentByteIndex += byteSent;
           }
           out.flush();
-          System.out.println("fake the checksum fail case");
           range = reader.readLine();
           continue;
         }
@@ -102,7 +100,6 @@ public class PiecesUploader implements Runnable {
           currentByteIndex += byteSent;
         }
         out.flush();
-        System.out.println("transfered");
         range = reader.readLine();
       }
 

@@ -18,23 +18,18 @@ public class DownloadServiceImpl implements DownloadService {
     try {
       directoryService = (DirectoryService) Naming.lookup(this.directoryServiceURL);
     } catch (Exception e) {
+      System.out.println("cannot lookup director");
       System.err.println(e);
     }
   }
 
   @Override
-  public void download(String fileName, int favorableNoSources, boolean sequential, String downloadFolder) {
-    // Get file info and download sources first
+  public boolean download(String fileName, int favorableNoSources, boolean sequential, String downloadFolder) {
     try {
-
       DownloadInfo downloadInfo = directoryService.downloadInfo(fileName, favorableNoSources);
 
       FileInfo fileInfo = downloadInfo.getFileInfo();
       int noPieces = fileInfo.getCheckSums().size();
-
-      if (fileInfo == null) {
-        throw new IllegalStateException("FileInfo cannot be null!");
-      }
 
       Set<Long> successfullPieces = new HashSet<>();
       List<DownloadSource> downloadSources = downloadInfo.getSources();
@@ -83,30 +78,21 @@ public class DownloadServiceImpl implements DownloadService {
         Files.move(Paths.get(downloadFolder + "/" + fileName + ".temp"), Paths.get(downloadFolder + "/" + fileName),
             StandardCopyOption.REPLACE_EXISTING);
         System.out.println("Download successfull");
+        return true;
       } else {
         Files.delete(Paths.get(downloadFolder + "/" + fileName + ".temp"));
         System.err.println("Failed download after 3 attempts");
+        return false;
       }
 
     } catch (Exception e) {
+      System.err.println("failed to download");
       System.err.println(e);
+      return false;
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    if (args.length != 5) {
-      System.out.println(
-          "use the program like this\njava DownloadServiceImpl <path-to-dir-config> <file-to-download> <path-to-save-folder> <no-favorable-source> <seq|para>");
-      throw new RuntimeException("missing or invalid args");
-    }
-    Properties dirConfig = new Properties();
-    try {
-      dirConfig.load(new FileInputStream(args[0]));
-    } catch (Exception e) {
-      System.err.println(e);
-      throw new RuntimeException("invalid directory config file");
-    }
-
+  public static DownloadServiceImpl fromConfig(Properties dirConfig) {
     String directoryServiceURL;
     try {
       directoryServiceURL = "//" + dirConfig.getProperty("DIR_ADDRESS") + ":" + dirConfig.getProperty("DIR_PORT") + "/"
@@ -115,7 +101,25 @@ public class DownloadServiceImpl implements DownloadService {
       System.err.println(e);
       throw new RuntimeException("missing config");
     }
-    DownloadService downloadService = new DownloadServiceImpl(directoryServiceURL);
+    return new DownloadServiceImpl(directoryServiceURL);
+  }
+
+  public static void main(String[] args) throws Exception {
+    if (args.length != 5) {
+      System.out.println(
+          "use the program like this\njava DownloadServiceImpl <path-to-dir-config> <file-to-download> <path-to-save-folder> <no-favorable-source> <seq|para>");
+      throw new RuntimeException("missing or invalid args");
+    }
+
+    Properties dirConfig = new Properties();
+    try {
+      dirConfig.load(new FileInputStream(args[0]));
+    } catch (Exception e) {
+      System.err.println(e);
+      throw new RuntimeException("invalid directory config file");
+    }
+
+    DownloadService downloadService = DownloadServiceImpl.fromConfig(dirConfig);
 
     String fileName = args[1];
     String downloadFolder = args[2];
