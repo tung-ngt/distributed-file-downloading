@@ -6,6 +6,8 @@ random_file2="data/random2.data"
 line_count=65000000
 text="songsong project"
 
+mkdir data
+
 echo "Generating $line_count repeating lines in $repeating_file..."
 yes "$text" | head -n "$line_count" > "$repeating_file"
 
